@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-codex-squeeze —— codex 会话自动挤 + 保持会话 + Telegram 通知（v2.3，跨平台 mac/Win）
+codex-squeeze —— codex 会话自动挤 + 保持会话 + Telegram 通知（v2.3.1，跨平台 mac/Win）
 
 用法：
     python3 codex-squeeze.py        # Windows：双击 codex-squeeze.bat
@@ -11,6 +11,7 @@ codex-squeeze —— codex 会话自动挤 + 保持会话 + Telegram 通知（v2
 · 每次运行：扫描会话选一个（也可以输 0/n 新建一个会话来挤）→ 开始服务它
 · TG 消息下面有「⏸ 停止挤会话 / ▶️ 继续挤会话」按钮；继续时可以在 TG 里选会话或新建会话
 · 每次没挤进去 TG 都会报「❌ 第 N 次：没挤进去…」；挤上和跑完也带第几次
+· 每轮成功都会报「✅ 第 N 次：挤进去了」（例行静默无铃声；失败/打回/跑完响铃），60 秒心跳在 TG 里看得见
 · 上游拥堵失败（Reconnecting 5/5 之后报 high demand）→ 立刻重试，一直挤到进去为止
 · 挤进去后：跑完一轮隔 60 秒再发一次「在」，保持会话（例行的心跳不打扰 TG）
 · 打回后重新挤进去 → 马上 TG 通知；该轮跑完 → TG 通知
@@ -231,7 +232,7 @@ class AppServer:
         self._next_id = 1
         threading.Thread(target=self._pump, daemon=True).start()
         self._request("initialize", {
-            "clientInfo": {"name": "codex-squeeze", "version": "2.3.0"}
+            "clientInfo": {"name": "codex-squeeze", "version": "2.3.1"}
         })
 
     def _write(self, payload):
@@ -347,7 +348,8 @@ def _display_line(s):
         if t.startswith(pref):
             return None
     if t.startswith("tokens used"):
-        return "本轮用量：%s tokens" % t.split(":", 1)[-1].strip()
+        rest = t.split(":", 1)[-1].strip() if ":" in t else ""
+        return ("本轮用量：%s tokens" % rest) if rest else None
     if t.startswith("ERROR") or t.startswith("WARN") or t.startswith("Error:"):
         return None
     return s
@@ -371,7 +373,7 @@ def _looks_like_content(line):
             return False
     return True
 
-def squeeze(tid, scwd, notify_in=False, n=None):
+def squeeze(tid, scwd, notify_in=False, n=None, silent_in=False):
     """跑一次「codex exec resume <tid> 在」。
     返回 (kind, rc)：kind = 'in'（挤进去了）/ 'fail'（没挤进去）/ 'locked'（被桌面端占用）。
     notify_in=True 时，看到模型开始输出就马上 TG「挤进去了」。"""
@@ -397,6 +399,7 @@ def squeeze(tid, scwd, notify_in=False, n=None):
     locked = False
     archived = False
     fatal = False
+    pend_tok = False
     rc = None
     last_line_time = time.time()
     while True:
@@ -416,32 +419,43 @@ def squeeze(tid, scwd, notify_in=False, n=None):
         if line:
             last_line_time = time.time()
             s = line.rstrip()
-            if s.strip().startswith("ERROR: Reconnecting"):
-                tail = s.strip()[len("ERROR: Reconnecting"):].strip().lstrip(".").strip()
+            st = s.strip()
+            consumed = False
+            if st.startswith("ERROR: Reconnecting"):
+                tail = st[len("ERROR: Reconnecting"):].strip().lstrip(".").strip()
                 print("  …正在重连 %s" % tail, flush=True)
+            elif pend_tok and st and st.replace(",", "").replace(".", "").isdigit():
+                print("  本轮用量：%s tokens" % st, flush=True)
+                pend_tok = False
+                consumed = True
             else:
+                if st == "tokens used":
+                    pend_tok = True
+                else:
+                    pend_tok = False
                 disp = _display_line(s)
                 if disp is not None:
                     print("  │ " + disp, flush=True)
-                elif s.strip().startswith("Error:") or s.strip().startswith("ERROR"):
-                    log("exec 报错：%s" % s.strip()[:220])
-            if "already has an active writer" in s:
-                locked = True
-            if " is archived" in s:
-                archived = True
-            if "high demand" in s:
-                fatal = True
-            if not got_in and not locked and not archived and not fatal and _looks_like_content(s):
-                got_in = True
-                print("  ✅ 挤进去了，Codex 正在跑", flush=True)
-                if notify_in:
-                    tg_send(("✅ 第 %d 次：挤进去了，Codex 正在跑" % n) if n else "✅ 挤进去了，Codex 正在跑")
-                log("看到模型开始输出 → 判定挤进去了")
+                elif st.startswith("Error:") or st.startswith("ERROR"):
+                    log("exec 报错：%s" % st[:220])
+            if not consumed:
+                if "already has an active writer" in s:
+                    locked = True
+                if " is archived" in s:
+                    archived = True
+                if "high demand" in s:
+                    fatal = True
+                if not got_in and not locked and not archived and not fatal and _looks_like_content(s):
+                    got_in = True
+                    print("  ✅ 挤进去了，Codex 正在跑", flush=True)
+                    if notify_in:
+                        tg_send((("✅ 第 %d 次：挤进去了，Codex 正在跑" % n) if n else "✅ 挤进去了，Codex 正在跑"), silent=silent_in)
+                    log("看到模型开始输出 → 判定挤进去了")
         if not got_in and not locked and not fatal and time.time() - last_line_time > FALLBACK_IN_SECS:
             got_in = True
             print("  ✅ 挤进去了（长时间无报错），Codex 正在跑", flush=True)
             if notify_in:
-                tg_send(("✅ 第 %d 次：挤进去了（长时间无报错），Codex 正在跑" % n) if n else "✅ 挤进去了（长时间无报错），Codex 正在跑")
+                tg_send((("✅ 第 %d 次：挤进去了（长时间无报错），Codex 正在跑" % n) if n else "✅ 挤进去了（长时间无报错），Codex 正在跑"), silent=silent_in)
             log("长时间无报错 → 判定挤进去了")
     if got_in:
         return ("in", rc if rc is not None else -1)
@@ -539,15 +553,24 @@ def new_session(scwd):
         log("新建会话启动失败：%s" % str(e)[:150])
         return None
     tid = None
+    pend_tok = False
     try:
         for line in proc.stdout:
             s = line.rstrip()
-            if s.strip().startswith("session id:"):
-                tid = s.split("session id:", 1)[1].strip()
-            if s.strip().startswith("ERROR: Reconnecting"):
-                tail = s.strip()[len("ERROR: Reconnecting"):].strip().lstrip(".").strip()
+            st = s.strip()
+            if st.startswith("session id:"):
+                tid = st.split("session id:", 1)[1].strip()
+            if st.startswith("ERROR: Reconnecting"):
+                tail = st[len("ERROR: Reconnecting"):].strip().lstrip(".").strip()
                 print("  …正在重连 %s" % tail, flush=True)
+            elif pend_tok and st and st.replace(",", "").replace(".", "").isdigit():
+                print("  本轮用量：%s tokens" % st, flush=True)
+                pend_tok = False
             else:
+                if st == "tokens used":
+                    pend_tok = True
+                else:
+                    pend_tok = False
                 disp = _display_line(s)
                 if disp is not None:
                     print("  │ " + disp, flush=True)
@@ -658,7 +681,7 @@ def main_loop(ctl, lock_warned=False, arch_warned=False):
         print("[%s] 第 %d 次发「%s」" % (time.strftime("%H:%M:%S"), n, SQUEEZE_MSG), flush=True)
         was_failing = failing
         t0 = time.time()
-        kind, rc = squeeze(tid, scwd, notify_in=was_failing, n=n)
+        kind, rc = squeeze(tid, scwd, notify_in=True, n=n, silent_in=not was_failing)
         dur = time.time() - t0
         if kind == "locked":
             if not lock_warned:
@@ -736,7 +759,7 @@ def run():
         pass
     threading.Thread(target=tg_poller, args=(ctl,), daemon=True).start()
 
-    tg_send("🚀 codex-squeeze 已启动，盯的会话：%s（消息下面有「停止 / 继续」按钮）" % tid[:8])
+    tg_send("🚀 codex-squeeze 已启动，盯的会话：%s\n每轮挤进去都会在下面报「✅ 第 N 次」（例行静默无铃声；失败/打回/跑完响铃）；跑完一轮隔 60 秒再发「在」保持会话。消息下面有「停止 / 继续」按钮" % tid[:8])
     log("==== 启动，盯 %s ====" % tid)
 
     lw = _thread_locked(tid)

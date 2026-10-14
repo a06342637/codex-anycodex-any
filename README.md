@@ -38,7 +38,7 @@ python3 -X utf8 -c "import urllib.request,time;u='https://raw.githubusercontent.
 
 **GitHub 只保存代码，程序在你的电脑上运行。** 运行期间需要保持电脑开机、终端运行和网络连接。按 `Ctrl+C` 停止。
 
-首次运行需要按提示配置 Telegram bot token、chat_id，再选择会话；已有配置会自动复用。程序会向所选会话发送「在」，并在一轮完成后隔 60 秒继续发送，可能消耗 Codex 用量。能否成功取决于服务可用性和账户状态。
+首次运行需要按提示配置 Telegram bot token、chat_id，再选择会话；已有配置会自动复用。程序会向所选会话发送「在」，并在一轮完成后隔 60 秒继续发送，可能消耗 Codex 用量。每轮成功会在 TG 报「✅ 第 N 次」（例行静默无铃声），失败/打回/跑完会响铃通知。能否成功取决于服务可用性和账户状态。
 
 配置和日志仍保存在本机用户目录的 `.codex-squeeze.json` 和 `.codex-squeeze.log` 中。配置含 Telegram token，请勿上传。无需保存源文件不代表完全不写本地数据。
 
