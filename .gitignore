@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+.codex-squeeze.json
+.codex-squeeze.log
+*.log
+.env
+.env.*
+.codex/
