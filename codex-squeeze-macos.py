@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""macOS 专用在线入口；支持 Intel 和 Apple Silicon 的常见安装目录。"""
+"""macOS 专用在线入口；支持 Intel 和 Apple Silicon 的常见安装目录。
+每次启动都强制读取 GitHub 最新版（URL 带 ?t= 时间戳，绕开缓存）。"""
 import os
+import re
 import shutil
 import sys
+import time
 import urllib.request
 
 CORE_URL = "https://raw.githubusercontent.com/a06342637/codex-anycodex-any/main/codex-squeeze.py"
@@ -37,11 +40,18 @@ def main():
     codex = find_codex()
     if not codex:
         raise SystemExit("没有找到 Codex。请安装并登录 Codex CLI，确保终端能运行 codex。")
+    url = CORE_URL + "?t=" + str(int(time.time()))   # 绕开缓存，始终取最新
     try:
-        with urllib.request.urlopen(CORE_URL, timeout=30) as response:
+        with urllib.request.urlopen(url, timeout=30) as response:
             source = response.read()
     except (OSError, ValueError) as exc:
         raise SystemExit("无法从 GitHub 读取主程序，请检查网络：%s" % exc)
+    try:
+        m = re.search(r"（v(\d+(?:\.\d+)*)", source.decode("utf-8", "replace"))
+        ver = m.group(1) if m else "?"
+    except Exception:
+        ver = "?"
+    print("codex-squeeze 主程序 v%s（已读取 GitHub 最新版）" % ver)
     namespace = {"__name__": "codex_squeeze_core", "__file__": CORE_URL}
     exec(compile(source, CORE_URL, "exec"), namespace)
     namespace["CODEX"] = codex

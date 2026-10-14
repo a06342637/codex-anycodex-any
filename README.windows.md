@@ -7,16 +7,16 @@
 打开 CMD 或 PowerShell，粘贴整行：
 
 ```powershell
-python -X utf8 -c "import os,subprocess;u='https://raw.githubusercontent.com/a06342637/codex-anycodex-any/main/codex-squeeze-windows.py';c=os.path.join(os.environ['SystemRoot'],'System32','curl.exe');exec(compile(subprocess.check_output([c,'-q','-fsSL','--connect-timeout','10','--max-time','30',u],timeout=35),u,'exec'))"
+python -X utf8 -c "import os,subprocess,time;u='https://raw.githubusercontent.com/a06342637/codex-anycodex-any/main/codex-squeeze-windows.py?t='+str(int(time.time()));c=os.path.join(os.environ['SystemRoot'],'System32','curl.exe');exec(compile(subprocess.check_output([c,'-q','-fsSL','--connect-timeout','10','--max-time','30',u],timeout=35),u,'exec'))"
 ```
 
 使用 Python 启动器的电脑也可以运行：
 
 ```powershell
-py -3 -X utf8 -c "import os,subprocess;u='https://raw.githubusercontent.com/a06342637/codex-anycodex-any/main/codex-squeeze-windows.py';c=os.path.join(os.environ['SystemRoot'],'System32','curl.exe');exec(compile(subprocess.check_output([c,'-q','-fsSL','--connect-timeout','10','--max-time','30',u],timeout=35),u,'exec'))"
+py -3 -X utf8 -c "import os,subprocess,time;u='https://raw.githubusercontent.com/a06342637/codex-anycodex-any/main/codex-squeeze-windows.py?t='+str(int(time.time()));c=os.path.join(os.environ['SystemRoot'],'System32','curl.exe');exec(compile(subprocess.check_output([c,'-q','-fsSL','--connect-timeout','10','--max-time','30',u],timeout=35),u,'exec'))"
 ```
 
-任选一条。程序源文件只读取到内存，不会保存到当前文件夹，也不需要安装第三方 Python 包。
+任选一条。程序源文件只读取到内存，不会保存到当前文件夹，也不需要安装第三方 Python 包。命令里的 `?t=时间戳` 参数会强制读取最新版本（绕开缓存）；启动时会显示主程序版本号。
 
 Windows 命令使用系统自带的 `curl.exe` 读取入口，入口也优先使用系统 curl 读取主程序；系统 curl 通常通过 Schannel 使用 Windows 证书库。两个步骤均保留 HTTPS 证书验证，不使用 Python `urllib` 获取代码，也不关闭证书校验。
 

@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Windows 专用在线入口；主程序只读入内存，不保存源码文件。"""
+"""Windows 专用在线入口；主程序只读入内存，不保存源码文件。
+每次启动都强制读取 GitHub 最新版（URL 带 ?t= 时间戳，绕开 CDN 缓存）。"""
 import os
+import re
 import shutil
 import subprocess
 import sys
+import time
 
 CORE_URL = "https://raw.githubusercontent.com/a06342637/codex-anycodex-any/main/codex-squeeze.py"
 
@@ -20,9 +23,10 @@ def find_curl():
 
 
 def fetch_core(curl):
+    url = CORE_URL + "?t=" + str(int(time.time()))   # 绕开缓存，始终取最新
     try:
         result = subprocess.run(
-            [curl, "-q", "-fsSL", "--connect-timeout", "10", "--max-time", "30", CORE_URL],
+            [curl, "-q", "-fsSL", "--connect-timeout", "10", "--max-time", "30", url],
             capture_output=True,
             check=True,
             timeout=35,
@@ -43,6 +47,14 @@ def fetch_core(curl):
     return result.stdout
 
 
+def core_version(source):
+    try:
+        m = re.search(r"（v(\d+(?:\.\d+)*)", source.decode("utf-8", "replace"))
+        return m.group(1) if m else "?"
+    except Exception:
+        return "?"
+
+
 def main():
     if sys.platform != "win32":
         raise SystemExit("ERROR: Windows launcher only. On macOS use codex-squeeze-macos.py.\n这是 Windows 入口；Mac 请使用 codex-squeeze-macos.py。")
@@ -52,6 +64,8 @@ def main():
     if not curl:
         raise SystemExit("ERROR: curl.exe was not found on PATH.\n没有找到 curl.exe。请安装 curl 并加入 PATH 后重试。")
     source = fetch_core(curl)
+    ver = core_version(source)
+    print("codex-squeeze core v%s (fetched latest from GitHub)\ncodex-squeeze 主程序 v%s（已读取 GitHub 最新版）" % (ver, ver))
     namespace = {"__name__": "codex_squeeze_core", "__file__": CORE_URL}
     exec(compile(source, CORE_URL, "exec"), namespace)
     if not namespace.get("CODEX"):

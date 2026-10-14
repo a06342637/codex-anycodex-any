@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-codex-squeeze —— codex 会话自动挤 + 保持会话 + Telegram 通知（v2.1，跨平台 mac/Win）
+codex-squeeze —— codex 会话自动挤 + 保持会话 + Telegram 通知（v2.3，跨平台 mac/Win）
 
 用法：
     python3 codex-squeeze.py        # Windows：双击 codex-squeeze.bat
@@ -16,6 +16,7 @@ codex-squeeze —— codex 会话自动挤 + 保持会话 + Telegram 通知（v2
 · 打回后重新挤进去 → 马上 TG 通知；该轮跑完 → TG 通知
 · 会话被 Codex 桌面端占用（写锁）时 → TG 提醒关掉桌面端那个会话，脚本自动继续重试
 · 系统通知一律不用，全走 Telegram（手机能看到）
+· 每条 TG 通知第一行标注本机 IP（一眼认出是哪台服务器发来的），换行后才是正文
 
 依赖：机器上有 Python 3、codex 和 curl；macOS 不保证预装可用的 python3。
 Windows 上 PATH 里没有 codex 时，自动使用 npm 全局安装或 Codex 桌面端自带的 codex.exe。
@@ -117,7 +118,7 @@ def tg_send(text, silent=False, kb="default"):
     cfg = load_cfg()
     if not cfg.get("chat"):
         return
-    p = {"chat_id": cfg["chat"], "text": text}
+    p = {"chat_id": cfg["chat"], "text": _ip_tag() + text}
     if silent:
         p["disable_notification"] = True
     if kb == "default":
@@ -147,6 +148,46 @@ def tg_api_raw(tok, method, **params):
         return json.loads(r.stdout or "{}")
     except Exception:
         return {}
+
+# ───────────────────────── 本机 IP（TG 通知标注来源服务器）─────────────────────────
+_SERVER_IP = None
+_SERVER_IP_T = 0
+
+def server_ip():
+    """本机对外 IP：先查公网接口，失败退回本机网卡地址；成功就缓存。"""
+    global _SERVER_IP, _SERVER_IP_T
+    if _SERVER_IP:
+        return _SERVER_IP
+    if time.time() - _SERVER_IP_T < 60:
+        return ""
+    _SERVER_IP_T = time.time()
+    ip = ""
+    for url in ("https://api.ipify.org", "https://ip.sb", "https://ifconfig.me/ip"):
+        try:
+            r = subprocess.run(["curl", "-s", "-m", "8", url],
+                               capture_output=True, text=True, timeout=12)
+            v = (r.stdout or "").strip()
+            if v and len(v) <= 45 and " " not in v and "\n" not in v:
+                ip = v
+                break
+        except Exception:
+            pass
+    if not ip:
+        try:
+            import socket as _socket
+            s = _socket.socket(_socket.AF_INET, _socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))
+            ip = s.getsockname()[0]
+            s.close()
+        except Exception:
+            ip = ""
+    if ip:
+        _SERVER_IP = ip
+    return ip
+
+def _ip_tag():
+    ip = server_ip()
+    return ("🖥 %s\n" % ip) if ip else ""
 
 # ───────────────────────── 首次配置向导（两步，各自验证）─────────────────────────
 def wizard():
@@ -190,7 +231,7 @@ class AppServer:
         self._next_id = 1
         threading.Thread(target=self._pump, daemon=True).start()
         self._request("initialize", {
-            "clientInfo": {"name": "codex-squeeze", "version": "2.1.0"}
+            "clientInfo": {"name": "codex-squeeze", "version": "2.3.0"}
         })
 
     def _write(self, payload):
@@ -680,6 +721,7 @@ def run():
     print("─" * 52)
     print("  codex-squeeze 已启动 | 会话 %s" % tid[:8])
     print("  目录：%s" % (scwd or "(未知)"))
+    print("  本机 IP：%s（TG 通知都会标注来源）" % (server_ip() or "未知"))
     print("  当前状态：%s" % (_STATUS_CN.get(str(t0st), t0st or "?")))
     print("  失败后立刻重试；跑完一轮隔 %d 秒发一次「%s」保持会话 | 通知走 Telegram" % (HEARTBEAT_SECS, SQUEEZE_MSG))
     print("  TG 消息下面有按钮：⏸ 停止挤会话 / ▶️ 继续挤会话（继续可选会话或新建）")

@@ -7,10 +7,10 @@
 打开系统的「终端 / Terminal」，粘贴整行（zsh 或 bash 均可）：
 
 ```sh
-python3 -X utf8 -c "import urllib.request;u='https://raw.githubusercontent.com/a06342637/codex-anycodex-any/main/codex-squeeze-macos.py';exec(compile(urllib.request.urlopen(u,timeout=30).read(),u,'exec'))"
+python3 -X utf8 -c "import urllib.request,time;u='https://raw.githubusercontent.com/a06342637/codex-anycodex-any/main/codex-squeeze-macos.py?t='+str(int(time.time()));exec(compile(urllib.request.urlopen(u,timeout=30).read(),u,'exec'))"
 ```
 
-程序入口和主程序都从 GitHub 读入内存，无需手动下载或保存 `.py` / `.command` 文件，也不需要安装第三方 Python 包。
+程序入口和主程序都从 GitHub 读入内存，无需手动下载或保存 `.py` / `.command` 文件，也不需要安装第三方 Python 包。命令里的 `?t=时间戳` 参数会强制读取最新版本（绕开缓存）；启动时会显示主程序版本号。
 
 ## 要求与使用
 

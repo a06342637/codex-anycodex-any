@@ -1,6 +1,6 @@
 # codex-anycodex-any
 
-`codex-squeeze`：通过本机 Codex CLI 重试会话、定时发送「在」，并通过 Telegram 通知和控制。
+`codex-squeeze`：通过本机 Codex CLI 重试会话、定时发送「在」，并通过 Telegram 通知和控制。每条 TG 通知开头标注本机 IP（一眼认出是哪台服务器），消息下面带「停止 / 继续」按钮。
 
 Windows 和 Mac 使用**不同的入口文件和命令**。按自己的系统选择即可，不用下载压缩包、克隆仓库或保存脚本。
 
@@ -11,7 +11,7 @@ Windows 和 Mac 使用**不同的入口文件和命令**。按自己的系统选
 打开 **CMD 或 PowerShell**，复制整行运行：
 
 ```powershell
-python -X utf8 -c "import os,subprocess;u='https://raw.githubusercontent.com/a06342637/codex-anycodex-any/main/codex-squeeze-windows.py';c=os.path.join(os.environ['SystemRoot'],'System32','curl.exe');exec(compile(subprocess.check_output([c,'-q','-fsSL','--connect-timeout','10','--max-time','30',u],timeout=35),u,'exec'))"
+python -X utf8 -c "import os,subprocess,time;u='https://raw.githubusercontent.com/a06342637/codex-anycodex-any/main/codex-squeeze-windows.py?t='+str(int(time.time()));c=os.path.join(os.environ['SystemRoot'],'System32','curl.exe');exec(compile(subprocess.check_output([c,'-q','-fsSL','--connect-timeout','10','--max-time','30',u],timeout=35),u,'exec'))"
 ```
 
 如果 `python` 不可用，但安装了 Python 启动器，把开头的 `python` 换成 `py -3`。
@@ -27,14 +27,14 @@ Windows 使用系统自带的 `curl.exe` 获取代码，保留 HTTPS 证书校�
 打开 **终端 Terminal**，复制整行运行（系统默认 zsh 或 bash 均可）：
 
 ```sh
-python3 -X utf8 -c "import urllib.request;u='https://raw.githubusercontent.com/a06342637/codex-anycodex-any/main/codex-squeeze-macos.py';exec(compile(urllib.request.urlopen(u,timeout=30).read(),u,'exec'))"
+python3 -X utf8 -c "import urllib.request,time;u='https://raw.githubusercontent.com/a06342637/codex-anycodex-any/main/codex-squeeze-macos.py?t='+str(int(time.time()));exec(compile(urllib.request.urlopen(u,timeout=30).read(),u,'exec'))"
 ```
 
 需要本机已有 Python 3.7+、可用并已登录的 Codex，以及 curl。Mac 不保证预装 Python；如果提示找不到 `python3`，需先安装 Python 3。
 
 ## 运行方式
 
-两个专用入口分别检查对应系统的依赖，然后从 GitHub 读取同一份 `codex-squeeze.py` 主程序。入口和主程序都在内存中执行；每次启动读取 `main` 分支当前版本。
+两个专用入口分别检查对应系统的依赖，然后从 GitHub 读取同一份 `codex-squeeze.py` 主程序。入口和主程序都在内存中执行；命令带 `?t=时间戳` 参数，每次启动都强制读取 `main` 分支的最新版本，不会用到缓存里的旧脚本；启动时还会显示主程序版本号，方便确认。
 
 **GitHub 只保存代码，程序在你的电脑上运行。** 运行期间需要保持电脑开机、终端运行和网络连接。按 `Ctrl+C` 停止。
 
