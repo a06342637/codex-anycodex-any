@@ -17,7 +17,7 @@ codex-squeeze —— codex 会话自动挤 + 保持会话 + Telegram 通知（v2
 · 会话被 Codex 桌面端占用（写锁）时 → TG 提醒关掉桌面端那个会话，脚本自动继续重试
 · 系统通知一律不用，全走 Telegram（手机能看到）
 
-依赖：机器上有 codex 命令即可（macOS 自带 python3；Win10+ 自带 curl）。
+依赖：机器上有 Python 3、codex 和 curl；macOS 不保证预装可用的 python3。
 Windows 上 PATH 里没有 codex 时，自动使用 npm 全局安装或 Codex 桌面端自带的 codex.exe。
 """
 import os
