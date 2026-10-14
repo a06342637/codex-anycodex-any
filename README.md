@@ -11,10 +11,12 @@ Windows 和 Mac 使用**不同的入口文件和命令**。按自己的系统选
 打开 **CMD 或 PowerShell**，复制整行运行：
 
 ```powershell
-python -X utf8 -c "import urllib.request;u='https://raw.githubusercontent.com/a06342637/codex-anycodex-any/main/codex-squeeze-windows.py';exec(compile(urllib.request.urlopen(u,timeout=30).read(),u,'exec'))"
+python -X utf8 -c "import os,subprocess;u='https://raw.githubusercontent.com/a06342637/codex-anycodex-any/main/codex-squeeze-windows.py';c=os.path.join(os.environ['SystemRoot'],'System32','curl.exe');exec(compile(subprocess.check_output([c,'-q','-fsSL','--connect-timeout','10','--max-time','30',u],timeout=35),u,'exec'))"
 ```
 
 如果 `python` 不可用，但安装了 Python 启动器，把开头的 `python` 换成 `py -3`。
+
+Windows 使用系统自带的 `curl.exe` 获取代码，保留 HTTPS 证书校验，避免依赖 Python 的证书验证环境。旧命令若报 `CERTIFICATE_VERIFY_FAILED`，请重新复制上面的新命令。
 
 ## Mac（macOS）
 
@@ -38,4 +40,4 @@ python3 -X utf8 -c "import urllib.request;u='https://raw.githubusercontent.com/a
 
 配置和日志仍保存在本机用户目录的 `.codex-squeeze.json` 和 `.codex-squeeze.log` 中。配置含 Telegram token，请勿上传。无需保存源文件不代表完全不写本地数据。
 
-原有 `codex-squeeze.bat` 和 `codex-squeeze.command` 是配合本地 `codex-squeeze.py` 使用的启动器；在线运行请使用上面各系统的专用命令。此前直接读取 `codex-squeeze.py` 的 Windows 命令仍可使用。
+原有 `codex-squeeze.bat` 和 `codex-squeeze.command` 是配合本地 `codex-squeeze.py` 使用的启动器；在线运行请使用上面各系统的专用命令。
