@@ -34,6 +34,33 @@ Windows 命令使用系统自带的 `curl.exe` 读取入口，入口也优先使
 
 ## 无法启动时
 
+### 中文乱码或显示为小方框
+
+`python -X utf8` 只设置 Python 的 UTF-8 模式；终端或管道仍可能用另一种编码解释输出，字体也可能不包含中文字形。所以可能有的输出正常，有的显示异常。仅凭方框截图不能确定具体是哪一种。
+
+如果使用 PowerShell，先在**同一个窗口**执行下面三行，再运行上面的在线启动命令：
+
+```powershell
+[Console]::InputEncoding = New-Object System.Text.UTF8Encoding
+[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding
+$OutputEncoding = [Console]::OutputEncoding
+```
+
+这些设置影响当前终端会话。如果使用 CMD，可以先运行 `chcp 65001`，再运行启动命令。
+
+如果仍显示小方框，请使用包含中文字形的终端字体（例如系统已安装的新宋体），或在 Windows Terminal 中打开 PowerShell 再试。编码设置不会给字体补上缺失的字形。
+
+启动器的错误现在先显示英文，再显示中文；即使中文无法显示，也能读到原因。例如：
+
+```text
+ERROR: Codex CLI was not found. Install it or add it to PATH.
+Check in this terminal: where.exe codex
+```
+
+这表示入口和主程序已经从 GitHub 读取成功，但没有找到本机可执行的 Codex。可以在同一个窗口运行 `where.exe codex` 检查 PATH；未找到不等于一定没有安装，也可能是安装位置未加入 PATH 或不在脚本的自动搜索范围内。
+
+### 其他启动错误
+
 | 现象 | 处理 |
 | --- | --- |
 | `python` 不是命令，或弹出 Microsoft Store | 尝试 `py -3` 命令；两者都不可用时，需要先安装 Python 3。 |
@@ -42,6 +69,7 @@ Windows 命令使用系统自带的 `curl.exe` 读取入口，入口也优先使
 | curl 超时或无法读取主程序 | 确认网络能访问 GitHub 原始文件域名 `raw.githubusercontent.com`，并检查代理设置后重试。 |
 | 找不到系统 `curl.exe` | 当前系统缺少命令要求的 curl，需要先修复或安装该运行依赖。 |
 | 没有找到 Codex | 安装并登录 Codex CLI，确认终端能运行 `codex`。 |
+| 中文乱码或方框 | 先按上面的步骤统一 UTF-8；仍是方框时检查字体。英文报错可以帮助辨认真正的启动问题。 |
 | Telegram 校验失败 | 检查 token、chat_id 和 Telegram API 网络连接。 |
 | 会话被桌面端占用 | 按脚本提示释放该会话的写锁，再重试。 |
 

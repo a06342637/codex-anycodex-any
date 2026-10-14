@@ -18,6 +18,8 @@ python -X utf8 -c "import os,subprocess;u='https://raw.githubusercontent.com/a06
 
 Windows 使用系统自带的 `curl.exe` 获取代码，保留 HTTPS 证书校验，避免依赖 Python 的证书验证环境。旧命令若报 `CERTIFICATE_VERIFY_FAILED`，请重新复制上面的新命令。
 
+中文乱码或显示为小方框时，请参考 [Windows 终端编码与字体排查](README.windows.md#中文乱码或显示为小方框)。启动报错同时提供英文，方便辨认原因。
+
 ## Mac（macOS）
 
 专用入口：[codex-squeeze-macos.py](codex-squeeze-macos.py) · [Mac 详细说明](README.macos.md)

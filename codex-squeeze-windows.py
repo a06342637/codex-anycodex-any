@@ -31,30 +31,35 @@ def fetch_core(curl):
         detail = (exc.stderr or b"").decode("utf-8", "replace").strip()
         if exc.returncode == 60:
             raise SystemExit(
+                "ERROR: Windows curl could not verify the GitHub HTTPS certificate.\n"
                 "Windows curl 也无法验证 GitHub 的 HTTPS 证书。"
                 "请检查系统时间、Windows 根证书及代理/安全软件的证书配置。\n" + detail
             )
-        raise SystemExit("无法从 GitHub 读取主程序，请检查网络：\n" + detail)
+        raise SystemExit("ERROR: Failed to fetch the program from GitHub.\n无法从 GitHub 读取主程序，请检查网络：\n" + detail)
     except subprocess.TimeoutExpired:
-        raise SystemExit("从 GitHub 读取主程序超时，请检查网络后重试。")
+        raise SystemExit("ERROR: GitHub download timed out.\n从 GitHub 读取主程序超时，请检查网络后重试。")
     except OSError as exc:
-        raise SystemExit("无法启动 curl：%s" % exc)
+        raise SystemExit("ERROR: Could not start curl.\n无法启动 curl：%s" % exc)
     return result.stdout
 
 
 def main():
     if sys.platform != "win32":
-        raise SystemExit("这是 Windows 入口；Mac 请使用 codex-squeeze-macos.py。")
+        raise SystemExit("ERROR: Windows launcher only. On macOS use codex-squeeze-macos.py.\n这是 Windows 入口；Mac 请使用 codex-squeeze-macos.py。")
     if sys.version_info < (3, 7):
-        raise SystemExit("请先安装 Python 3.7 或更高版本。")
+        raise SystemExit("ERROR: Python 3.7 or newer is required.\n请先安装 Python 3.7 或更高版本。")
     curl = find_curl()
     if not curl:
-        raise SystemExit("没有找到 curl.exe。请安装 curl 并加入 PATH 后重试。")
+        raise SystemExit("ERROR: curl.exe was not found on PATH.\n没有找到 curl.exe。请安装 curl 并加入 PATH 后重试。")
     source = fetch_core(curl)
     namespace = {"__name__": "codex_squeeze_core", "__file__": CORE_URL}
     exec(compile(source, CORE_URL, "exec"), namespace)
     if not namespace.get("CODEX"):
-        raise SystemExit("没有找到 Codex。请安装并登录 Codex CLI，确保它在 PATH 中。")
+        raise SystemExit(
+            "ERROR: Codex CLI was not found. Install it or add it to PATH.\n"
+            "Check in this terminal: where.exe codex\n"
+            "没有找到 Codex。请安装并登录 Codex CLI，确保它在 PATH 中。"
+        )
     namespace["main"]()
 
 
