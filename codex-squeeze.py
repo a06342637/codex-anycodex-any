@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-codex-squeeze —— codex 会话自动挤 + 保持会话 + Telegram 通知（v2.3.1，跨平台 mac/Win）
+codex-squeeze —— codex 会话自动挤 + 保持会话 + Telegram 通知（v2.3.2，跨平台 mac/Win）
 
 用法：
     python3 codex-squeeze.py        # Windows：双击 codex-squeeze.bat
@@ -18,6 +18,7 @@ codex-squeeze —— codex 会话自动挤 + 保持会话 + Telegram 通知（v2
 · 会话被 Codex 桌面端占用（写锁）时 → TG 提醒关掉桌面端那个会话，脚本自动继续重试
 · 系统通知一律不用，全走 Telegram（手机能看到）
 · 每条 TG 通知第一行标注本机 IP（一眼认出是哪台服务器发来的），换行后才是正文
+· Windows 控制台自动关闭「快速编辑」：鼠标点/划过窗口不会再让输出暂停（那种按回车才恢复的"卡住"）
 
 依赖：机器上有 Python 3、codex 和 curl；macOS 不保证预装可用的 python3。
 Windows 上 PATH 里没有 codex 时，自动使用 npm 全局安装或 Codex 桌面端自带的 codex.exe。
@@ -32,6 +33,23 @@ import subprocess
 import shutil as _shutil
 
 IS_WIN = (os.name == "nt")
+
+def _fix_console():
+    """Windows 控制台：关掉「快速编辑」，鼠标点选窗口不会再把输出暂停（看起来像卡死）。"""
+    if not IS_WIN:
+        return
+    try:
+        import ctypes
+        k32 = ctypes.windll.kernel32
+        h = k32.GetStdHandle(-10)
+        mode = ctypes.c_uint()
+        if not k32.GetConsoleMode(h, ctypes.byref(mode)):
+            return
+        new = (mode.value | 0x0080) & ~0x0040   # 置扩展标志位、清快速编辑
+        if new != mode.value:
+            k32.SetConsoleMode(h, new)
+    except Exception:
+        pass
 
 # ───────────────────────── codex 定位 ─────────────────────────
 def _npm_native_codex():
@@ -232,7 +250,7 @@ class AppServer:
         self._next_id = 1
         threading.Thread(target=self._pump, daemon=True).start()
         self._request("initialize", {
-            "clientInfo": {"name": "codex-squeeze", "version": "2.3.1"}
+            "clientInfo": {"name": "codex-squeeze", "version": "2.3.2"}
         })
 
     def _write(self, payload):
@@ -771,6 +789,7 @@ def run():
     print("  codex-squeeze 结束")
 
 def main():
+    _fix_console()
     if not CODEX:
         print("✗ 没有找到 codex 命令。")
         print("  Windows：装好 Codex 桌面端即可（自动用它自带的 CLI），或 npm install -g @openai/codex；")
