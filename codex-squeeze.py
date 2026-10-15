@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-codex-squeeze —— codex 会话自动挤 + 保持会话 + Telegram 通知（v2.3.2，跨平台 mac/Win）
+codex-squeeze —— codex 会话自动挤 + 保持会话 + Telegram 通知（v2.3.3，跨平台 mac/Win）
 
 用法：
     python3 codex-squeeze.py        # Windows：双击 codex-squeeze.bat
@@ -18,6 +18,7 @@ codex-squeeze —— codex 会话自动挤 + 保持会话 + Telegram 通知（v2
 · 会话被 Codex 桌面端占用（写锁）时 → TG 提醒关掉桌面端那个会话，脚本自动继续重试
 · 系统通知一律不用，全走 Telegram（手机能看到）
 · 每条 TG 通知第一行标注本机 IP（一眼认出是哪台服务器发来的），换行后才是正文
+· 同一个 bot 同时只应运行一个脚本实例（多个实例会互抢按钮，脚本会提示）；bot 上不要挂 webhook（会把按钮全部挡掉）
 · Windows 控制台自动关闭「快速编辑」：鼠标点/划过窗口不会再让输出暂停（那种按回车才恢复的"卡住"）
 
 依赖：机器上有 Python 3、codex 和 curl；macOS 不保证预装可用的 python3。
@@ -128,7 +129,7 @@ def tg_api(method, timeout_m=20, **params):
     for k, v in params.items():
         args += ["--data-urlencode", "%s=%s" % (k, v)]
     try:
-        r = subprocess.run(args, capture_output=True, text=True, timeout=25)
+        r = subprocess.run(args, capture_output=True, text=True, timeout=timeout_m + 15)
         return json.loads(r.stdout or "{}")
     except Exception:
         return {}
@@ -250,7 +251,7 @@ class AppServer:
         self._next_id = 1
         threading.Thread(target=self._pump, daemon=True).start()
         self._request("initialize", {
-            "clientInfo": {"name": "codex-squeeze", "version": "2.3.2"}
+            "clientInfo": {"name": "codex-squeeze", "version": "2.3.3"}
         })
 
     def _write(self, payload):
@@ -643,7 +644,7 @@ def handle_tg_update(ctl, u):
         threading.Thread(target=worker, daemon=True).start()
 
 def tg_poller(ctl):
-    """常驻线程：长轮询 TG，处理按钮回调。"""
+    """常驻线程：长轮询 TG，处理按钮回调。出错有退避；webhook 冲突/多实例抢轮询会提醒一次。"""
     offset = ctl.offset
     if offset is None:
         try:
@@ -652,15 +653,37 @@ def tg_poller(ctl):
                 offset = u.get("update_id", 0) + 1
         except Exception:
             pass
+    err_kind = None
     while True:
         try:
-            params = {"timeout": 25}
+            params = {"timeout": 20}
             if offset is not None:
                 params["offset"] = offset
             r = tg_api("getUpdates", timeout_m=35, **params)
-            if not r:
-                time.sleep(2)
+            if not r or not r.get("ok"):
+                desc = str((r or {}).get("description") or "网络失败")
+                if desc != err_kind:
+                    err_kind = desc
+                    hint = ""
+                    if "webhook is active" in desc:
+                        hint = ("这个 bot 被设置了 webhook，按钮/指令收不到（webhook 和脚本按钮不能同时用）。"
+                                "请清除 webhook（deleteWebhook）后重试，也可以找 Claude 处理。")
+                    elif "terminated by other getUpdates" in desc:
+                        hint = "另一个脚本实例也在轮询同一个 bot（可能另一台服务器或另一个窗口），按钮会被随机的实例抢走，建议同时只保留一个实例。"
+                    log("TG 轮询异常：%s" % desc[:160])
+                    print("[%s] ⚠ TG 轮询异常：%s" % (time.strftime("%H:%M:%S"), (hint or desc)[:130]), flush=True)
+                    if hint:
+                        tg_send("⚠️ " + hint)
+                wait = 5
+                try:
+                    ra = (r or {}).get("parameters", {}).get("retry_after")
+                    if ra:
+                        wait = min(int(ra) + 1, 60)
+                except Exception:
+                    pass
+                time.sleep(wait)
                 continue
+            err_kind = None
             for u in (r.get("result") or []):
                 offset = u.get("update_id", 0) + 1
                 handle_tg_update(ctl, u)
